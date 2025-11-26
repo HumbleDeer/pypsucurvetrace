@@ -28,11 +28,6 @@ from pypsucurvetrace.curvetrace_tools import say_hello, get_logger
 # set up logger:
 logger = get_logger('curveplot')
 
-
-if __name__ == "__main__":
-    cplot()
-
-
 def cplot():
     ################
     # main program #
@@ -455,3 +450,6 @@ def cplot():
 	    
 	    # cleanup: close the plot after all plots are done
 	    plt.close(fig)
+
+if __name__ == "__main__":
+    cplot()

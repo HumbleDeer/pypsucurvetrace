@@ -28,10 +28,6 @@ from pypsucurvetrace.curvetrace_tools import say_hello, get_logger, error_and_ex
 # set up logger:
 logger = get_logger('cconvert')
 
-if __name__ == "__main__":
-    cconvert()
-
-
 def cconvert():
     ################
     # main program #
@@ -100,3 +96,6 @@ def __convert_from_etracer(datafile):
             DAT.append([x.iloc[0][k], x.iloc[1][k]/1000.0, x.iloc[0][k], x.iloc[1][k]/1000.0, 0, u2, 0, u2, 0, 0, 0])
 
     return DAT
+
+if __name__ == "__main__":
+    cconvert()

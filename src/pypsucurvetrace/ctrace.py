@@ -32,11 +32,6 @@ from pypsucurvetrace.plot_curves import curve_plotter
 # set up logger:
 logger = get_logger('curvetrace')
 
-
-if __name__ == "__main__":
-    ctrace()
-
-
 def cleanup_exit(PSU1, PSU2, HEATER, queue, plt_proc):
 ###################
 # cleanup at exit #
@@ -651,3 +646,6 @@ def ctrace():
 
     finally:
 	    cleanup_exit(PSU1, PSU2, HEATER, queue, plt_proc)
+
+if __name__ == "__main__":
+    ctrace()

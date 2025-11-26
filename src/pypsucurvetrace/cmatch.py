@@ -25,10 +25,6 @@ from pypsucurvetrace.curvetrace_tools import say_hello, get_logger, convert_to_b
 # set up logger:
 logger = get_logger('curvematch')
 
-if __name__ == "__main__":
-    cmatch()
-    
-
 def cmatch():
     ################
     # main program #
@@ -213,10 +209,13 @@ def curves_RMSdelta(cdata1, cdata2, U1range, I1range, R2_val1=None, R2_val2=None
         dx2_cRMS = None
     
     return dx2_0RMS, dx2_cRMS
-    
+
 
 def X2_surface(U1, I1, X2, u1, i1):
     # determine the 2D surface representing the function x2 = f(u1,i1) at the grid points defined by (u1,i1)
     uu1, ii1 = np.meshgrid(u1,i1)
     x2 = griddata((U1, I1), X2, (uu1, ii1), method='linear')
     return x2
+
+if __name__ == "__main__":
+    cmatch()

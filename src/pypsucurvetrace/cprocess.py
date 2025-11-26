@@ -25,10 +25,6 @@ from pypsucurvetrace.curvetrace_tools import say_hello, get_logger, convert_to_b
 # set up logger:
 logger = get_logger('curveprocess')
 
-if __name__ == "__main__":
-    cprocess()
-
-
 def cprocess():
     ################
     # main program #
@@ -231,3 +227,6 @@ def proc_curves(cdata, U1, I1, R2_val=None, BJT_VBE=None):
     X2 = griddata((cU1, cI1), cX2, (U1, I1), method='linear') # linear interpolation (cubic spline tends to screw up somehow...)
 
     return X2, dI1_dX2, dU1_dX2, dI1_dU1
+
+if __name__ == "__main__":
+    cprocess()
