@@ -44,6 +44,8 @@ def cconvert():
     args = parser.parse_args()
 
     # parse input-file format
+    input_format: str = "" # initialise the format holding string
+
     if args.etracer:
         input_format = 'etracer'
     else:
