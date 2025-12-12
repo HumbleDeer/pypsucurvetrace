@@ -61,21 +61,22 @@ def cmatch():
         error_and_exit(logger, 'Need two or more different input datafiles')
 
     # U1range, I1range:
+    # both of type valuepairs(), a list of two sublists, where sublist may each contain a single float
+    # i.e. U1range = [[1.0],[2.0]] or [[1.0, 1.1],[2.0, 2.1]] etc.
     U1range = args.U1range
     I1range = args.I1range
 
     # BJT Vbe-on value:
     BJT_VBE = None # default
     if args.bjtvbe:
-	    BJT_VBE = float(args.bjtvbe)
+        BJT_VBE = float(args.bjtvbe)
 
     # prepare output, header:
-    sep = ', '
-    
     label_U1_low  = 'U1_range_low (V)'
     label_U1_high = 'U1_range_high (V)'
     label_I1_low  = 'I1_range_low (A)'
     label_I1_high = 'I1_range_high (A)'
+
     if BJT_VBE is not None:
         # current controlled DUT
         label_X2_delta_RMS              = 'delta-Ib (A-RMS)'
@@ -85,9 +86,11 @@ def cmatch():
         label_X2_delta_RMS              = 'delta-Vg (V-RMS)'
         label_X2_delta_RMS_mean_removed = 'delta-Vg mean subtracted (V-RMS)'
     
-    print( 'Filename-1' + sep + 'Sample-1' + sep + 'Filename-2' + sep + 'Sample-2' + sep + 
-            label_U1_low + sep + label_U1_high + sep + label_I1_low + sep + label_I1_high + sep + 
-            label_X2_delta_RMS + sep + label_X2_delta_RMS_mean_removed )
+    print(
+        f"Filename-1, Sample-1, Filename-2, Sample-2,"
+        f"{label_U1_low}, {label_U1_high}, {label_I1_low}, {label_I1_high},"
+        f"{label_X2_delta_RMS}, {label_X2_delta_RMS_mean_removed}"
+    )
 
     try:
         U1range  = [ min(min(U1range)), max(max(U1range)) ]
@@ -138,18 +141,15 @@ def cmatch():
                 try: dx2_cRMS = "{:.{}g}".format( dx2_cRMS, Nd )
                 except: dx2_cRMS = 'N/A'
                     
-                print( Path(d1.datafile).stem + sep + l1 + sep +
-	                   Path(d2.datafile).stem + sep + l2 + sep +
-	                   U1_low + sep +
-	                   U1_high + sep +
-	                   I1_low + sep +
-	                   I1_high + sep +
-	                   dx2_0RMS + sep +
-	                   dx2_cRMS
-	                  )
+                print(
+                    f"{Path(d1.datafile).stem}, {l1},"
+                    f"{Path(d2.datafile).stem}, {l2},"
+                    f"{U1_low},{U1_high}, {I1_low}, {I1_high},"
+                    f"{dx2_0RMS}, {dx2_cRMS}"
+                )
 
     for x in not_proc:
-        logger.warning('Could not match data from files ' + Path(x[0].datafile).stem + ' and '  + Path(x[1].datafile).stem)
+        logger.warning(f"Could not match data from files {Path(x[0].datafile).stem} and {Path(x[1].datafile).stem}.")
 
 
 def curves_RMSdelta(cdata1, cdata2, U1range, I1range, R2_val1=None, R2_val2=None, BJT_VBE1=None, BJT_VBE2=None):
