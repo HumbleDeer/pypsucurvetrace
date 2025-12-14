@@ -21,10 +21,10 @@ logger = get_logger('powersupply')
 # PSU object:
 #    .setVoltage(voltage)   set voltage
 #    .setCurrent(current)   set current
-#    .turnOff()   	    turn PSU output off
-#    .turnOn()   	    turn PSU output on
+#    .turnOff()   	        turn PSU output off
+#    .turnOn()   	        turn PSU output on
 #    .read()                read current voltage, current, and limiter mode (voltage or current limiter active)
-#    #### .settletime()             estimated settle time to attain stable voltage + current at PSU output after changing the setpoint (s)
+#    .settletime()          estimated settle time to attain stable voltage + current at PSU output after changing the setpoint (s)
 #    .VMAX                  max. supported voltage (V)
 #    .VMIN                  min. supported voltage (V)
 #    .IMAX                  max. supported current (V)
@@ -48,7 +48,7 @@ logger = get_logger('powersupply')
 #    .TEST_IIDLE            current limit for idle conditions during test (A)
 #    .TEST_N                number of test voltage steps (V)
 #    .TEST_POLARITY         polarity of connections to the PSU (1 or -1)
-#    .COMMANDSET            commandset type string (indicating Voltcraft/Mason, Korad/RND, SCPI, etc.)
+#    .COMMANDSET            commandset type string (indicating Voltcraft/Mason, Korad/RND, SCPI, RIDEN, XINYI, etc.)
 #    .MODEL                 PSU model string
 #    .CONNECTED             Flag indicating if connection between computer and PSU is set up (bool)
 #    .CONFIGURED            Flag indicating if test conditions have between configured (bool)
@@ -58,16 +58,18 @@ class PSU:
     Abstract power supply (PSU) class
     """
 
-    def __init__(self, port=None, commandset=None, label=None, V_SET_CALPOLY=None, V_READ_CALPOLY=None, I_SET_CALPOLY=None, I_READ_CALPOLY=None):
+    def __init__(self, port=None, commandset=None, label=None, V_SET_CALPOLY=None, V_READ_CALPOLY=None, I_SET_CALPOLY=None, I_READ_CALPOLY=None, modbus_addr=None):
         '''
         PSU(port, type, label)
         port : serial port (string, example: port = '/dev/serial/by-id/XYZ_123_abc')
         commandset : specifies computer interface / command set (string).
-            Voltcraft PPS / Mason: commandset = 'Voltcraft'
-            Korad / RND: commandset = 'Korad'
-            Riden / Ruiden: commandset = 'Riden'
-            Saluki / Maynuo: commandset = 'SALUKI'
+            Voltcraft PPS / Mason:  commandset = 'Voltcraft'
+            Korad / RND:            commandset = 'Korad'
+            Riden / Ruiden:         commandset = 'Riden'
+            Saluki / Maynuo:        commandset = 'SALUKI'
+            XinYi:                  commandset = 'XINYI'
         label: label or name to be used to describe / identify the PSU unit (string)
+        modbus_addr: Modbus address for devices on the same serial port (tuple for multiple devices, or single int)
         '''
 
         # init generic PSU:
@@ -85,14 +87,17 @@ class PSU:
             self.V_SET_CALPOLY = (0, 1)
         else:
             self.V_SET_CALPOLY = V_SET_CALPOLY
+            
         if V_READ_CALPOLY is None:
             self.V_READ_CALPOLY = (0, 1)
         else:
             self.V_READ_CALPOLY = V_READ_CALPOLY
+            
         if I_SET_CALPOLY is None:
             self.I_SET_CALPOLY = (0, 1)
         else:
             self.I_SET_CALPOLY = I_SET_CALPOLY
+            
         if I_READ_CALPOLY is None:
             self.I_READ_CALPOLY = (0, 1)
         else:
@@ -105,6 +110,7 @@ class PSU:
         self.TEST_PLIMIT = 0.0
         self.TEST_VIDLE = 0.0
         self.TEST_IIDLE = 0.0
+        self.test_PIDLELIMIT = 0.0
         self.TEST_N = 1
         self.TEST_POLARITY = 1
         self.LABEL = label
@@ -116,13 +122,16 @@ class PSU:
 
         # check inputs:
         if not port:
-            logger.error (label + ': cannot connect to power supply (no serial port specified).')
+            logger.error (f"{label}: cannot connect to power supply (no serial port specified).")
             
         elif not commandset:
-            logger.error (label + ': cannot connect to power supply (no type / command set specified).')
+            logger.error (f"{label}: cannot connect to power supply (no type / command set specified).")
 
         elif not label:
-            logger.error (label + ': cannot set up power supply (no label specified).')
+            logger.error (f"{label}: cannot set up power supply (no label specified).")
+            
+        elif commandset == "XINYI" and modbus_addr is None:
+            logger.error (f"{label}: cannot connect to XinYi power supply (no Modbus address specified). For multiple XinYi PSUs on the same serial port, add MODBUS_ADDR to the PSU sections of your config file.")
 
         # connect to the PSUs and set it/them up:
         else:
@@ -171,7 +180,15 @@ class PSU:
                     C = 'SALUKI'
                 
                 elif C == "XINYI":
-                    PSU = powersupply_XINYI.XINYI(P, debug=False)
+                    # Get modbus address for this PSU
+                    if modbus_addr is not None:
+                        if type(modbus_addr) is tuple:
+                            addr = modbus_addr[k]
+                        else:
+                            addr = modbus_addr
+                    else:
+                        addr = 1  # default Modbus address
+                    PSU = powersupply_XINYI.XINYI(P, modbus_addr=addr, debug=False)
                     C = "XINYI"
                 
                 else:
@@ -202,18 +219,25 @@ class PSU:
                 self.PMAX += self._PSU[k].PMAX
                 self.VOFFSETMAX += self._PSU[k].VOFFSETMAX
                 self.IOFFSETMAX += self._PSU[k].IOFFSETMAX
+                
                 if self.IMAX > self._PSU[k].IMAX:
-                    self.IMAX = self._PSU[k].IMAX;
+                    self.IMAX = self._PSU[k].IMAX
+                    
                 if self.VRESSET < self._PSU[k].VRESSET:
                     self.VRESSET = self._PSU[k].VRESSET
+                    
                 if self.IRESSET < self._PSU[k].IRESSET:
                     self.IRESSET = self._PSU[k].IRESSET
+                    
                 if self.VRESREAD < self._PSU[k].VRESREAD:
                     self.VRESREAD = self._PSU[k].VRESREAD
+                    
                 if self.IRESREAD < self._PSU[k].IRESREAD:
                     self.IRESREAD = self._PSU[k].IRESREAD
+                    
                 if self.MAXSETTLETIME < self._PSU[k].MAXSETTLETIME:
                     self.MAXSETTLETIME = self._PSU[k].MAXSETTLETIME
+                    
                 if self.READIDLETIME < self._PSU[k].READIDLETIME:
                     self.READIDETIME = self._PSU[k].READIDLETIME
 
@@ -274,7 +298,7 @@ class PSU:
                 self._PSU[k].voltage(VV)
                 
             else:
-                raise RuntimeError('Cannot set voltage on power supply with ' + self._PSU[k].COMMANDSET + ' command set.')
+                raise RuntimeError(f"Cannot set voltage on power supply with {self._PSU[k].COMMANDSET} command set.")
                 
         # update power output:
         if value == 0.0:
@@ -316,7 +340,7 @@ class PSU:
                 if r[2] == "CC":
                     pass # voltage setpoint running into current limit mode. Skip waiting for stable output voltage...
                 else:
-                    logger.warning (self.LABEL + ': voltage setpoint not reached after ' + str(self.MAXSETTLETIME) + ' s! Offset = ' + str(delta) + ' V')
+                    logger.warning (f"{self.LABEL}: voltage setpoint not reached after {self.MAXSETTLETIME} s! Offset = {delta} V")
 
 
 
@@ -351,7 +375,7 @@ class PSU:
                 self._PSU[k].current(VV)
                 
             else:
-                raise RuntimeError('Cannot set current on power supply with ' + self._PSU[k].COMMANDSET + ' command set.')
+                raise RuntimeError(f'Cannot set current on power supply with {self._PSU[k].COMMANDSET} command set.')
 
         # update power output:
         if value == 0.0:
@@ -378,7 +402,7 @@ class PSU:
                 if r[2] == "CV":
                     pass # current setpoint running into voltage limit mode. Skip waiting for stable output current...
                 else:
-                    logger.warning (self.LABEL + ': current setpoint not reached after ' + str(self.MAXSETTLETIME) + ' s! Offset = ' + str(delta) + ' A')
+                    logger.warning (f"{self.LABEL}: current setpoint not reached after {self.MAXSETTLETIME} s! Offset = {delta} A")
 
 
     ########################################################################################################
@@ -404,7 +428,7 @@ class PSU:
                 self._PSU[k].current(0.0)
 
             else:
-                raise RuntimeError('Cannot turn off power supply with ' + self._PSU[k].COMMANDSET + ' command set.')
+                raise RuntimeError(f'Cannot turn off power supply with {self._PSU[k].COMMANDSET} command set.')
                 
         self._last_power = 0.0
 
@@ -431,7 +455,7 @@ class PSU:
                 self._PSU[k].output(True)
 
             else:
-                raise RuntimeError('Cannot turn on power supply with ' + self._PSU[k].COMMANDSET + ' command set.')
+                raise RuntimeError(f'Cannot turn on power supply with {self._PSU[k].COMMANDSET} command set.')
 
 
     ########################################################################################################
@@ -481,8 +505,8 @@ class PSU:
                     l.append(ll)
                 
                 else:
-                    raise RuntimeError('Cannot read values from power supply with ' + self._PSU[k].COMMANDSET + ' command set.')
-                    break
+                    raise RuntimeError(f'Cannot read values from power supply with {self._PSU[k].COMMANDSET} command set.')
+                break
             
             v = sum(v)
             i = sum(i)/len(i)
@@ -493,9 +517,9 @@ class PSU:
 
             if N == 1:
                 # just single readings, no need to match repeated readings to within the resolution of the PSU
-                V = v;
-                I = i;
-                L = l;
+                V = v
+                I = i
+                L = l
                 break
 
             else:
@@ -503,7 +527,7 @@ class PSU:
                 I.append(i)
                 if l == "CC":
                     L.append(1.0)
-                    limit = limit + 1
+                    limit += 1
                     if limit > limit_max: # ran into the current limit for the third time
                         break
                 else:
@@ -525,7 +549,7 @@ class PSU:
 
                 if time.time() - t0 > self.MAXSETTLETIME:
                     # getting consistent readings is taking too long; give up
-                    logger.info(self.LABEL + ': Could not get ' + str(N) + ' consistent readings in a row after ' + str(self.MAXSETTLETIME) + ' s! DUT drifting? Noise?')
+                    logger.info(f"{self.LABEL}: Could not get {N} consistent readings in a row after {self.MAXSETTLETIME} seconds! DUT drifting? Noise?")
                     break
         
         if N > 1:

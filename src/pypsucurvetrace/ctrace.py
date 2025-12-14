@@ -82,10 +82,6 @@ def ctrace():
     # parse args:
     args = parser.parse_args()
 
-    # Say Hello:
-    if not args.nohello:
-        say_hello('curvetrace', 'I-V curve tracing of electronic parts using programmable power supplies')
-
     # read PSU config file:
     cfgfilename = 'curvetrace_config.ini'
     # Get project root from environment variable, then select config file relative from that
@@ -95,8 +91,19 @@ def ctrace():
         cfgfile = Path(project_root) / cfgfilename
         if not cfgfile.is_file():
             error_and_exit(logger, f'Could not find config file {cfgfilename} at {cfgfile} (PYPSUCURVETRACE_ROOT environment variable)')
+    else:
+        # Fallback to current directory if environment variable is not set
+        cfgfile = Path(cfgfilename)
+        if not cfgfile.is_file():
+            error_and_exit(logger, f'Could not find config file {cfgfilename} in current directory')
+    logger.info(f'Using config file {cfgfile}')
     configTESTER = configparser.ConfigParser()
     configTESTER.read(cfgfile)
+
+    # only say hello if: cfgfile SAY_HELLO True/unset and --no-hello arg is not used
+    # using --no-hello arg should still override if cfgfile SAY_HELLO=True
+    if configTESTER['PYPSUCURVETRACE'].getboolean('SAY_HELLO', fallback=True) and not args.nohello:
+        say_hello('curvetrace', 'I-V curve tracing of electronic parts using programmable power supplies')
 
     # check for batch mode:
     batch_mode = False
@@ -113,17 +120,17 @@ def ctrace():
     # read DUT test config file (if any):
     configDUT = []
     if args.config:
-        logger.info('Reading DUT configuration in file ' + args.config + '...')
+        logger.info(f'Reading DUT configuration in file {args.config}...')
         configDUT = configparser.ConfigParser()
         configDUT.read(args.config)
         
     # connect to PSUs:
     try:
-        PSU1 = connect_PSU(configTESTER, 'PSU1', logger);
+        PSU1 = connect_PSU(configTESTER, 'PSU1', logger)
     except Exception as e:
         error_and_exit(logger, 'Could not connect to PSU1', e)
     try:
-        PSU2 = connect_PSU(configTESTER, 'PSU2', logger);
+        PSU2 = connect_PSU(configTESTER, 'PSU2', logger)
     except Exception as e:
         error_and_exit(logger, 'Could not connect to PSU1', e)
 
@@ -226,22 +233,22 @@ def ctrace():
     for p in [PSU1,PSU2]:
         if p.CONNECTED:
             if p.TEST_VSTART < p.VMIN:
-                logger.info('  ' + p.LABEL + ': Adjusting start voltage to min. value possible with the power supply (' + str(p.VMIN) + ' V).')
+                logger.info(f'  {p.LABEL}: Adjusting start voltage to min. value possible with the power supply ({str(p.VMIN)} V).')
                 p.TEST_VSTART = p.VMIN
             if p.TEST_VSTART > p.VMAX:
-                logger.info('  ' + p.LABEL + ': Adjusting start voltage to max. value possible with the power supply (' + str(p.VMAX) + ' V).')
+                logger.info(f'  {p.LABEL}: Adjusting start voltage to max. value possible with the power supply ({str(p.VMAX)} V).')
                 p.TEST_VSTART = p.VMAX
             if p.TEST_VEND < p.VMIN:
-                logger.info('  ' + p.LABEL + ': Adjusting end voltage to min. value possible with the power supply (' + str(p.VMIN) + ' V).')
+                logger.info(f'  {p.LABEL}: Adjusting end voltage to min. value possible with the power supply ({str(p.VMIN)} V).')
                 p.TEST_VEND = p.VMIN
             if p.TEST_VEND > p.VMAX:
-                logger.info('  ' + p.LABEL + ': Adjusting end voltage to max. value possible with the power supply (' + str(p.VMAX) + ' V).')
+                logger.info(f'  {p.LABEL}: Adjusting end voltage to max. value possible with the power supply ({str(p.VMAX)} V).')
                 p.TEST_VEND = p.VMAX
             if p.TEST_VEND == p.TEST_VSTART:
-                # logger.info('  ' + p.LABEL + ': Same start and end voltage, test will run at fixed voltage (' + str(p.TEST_VSTART) + ' V).')
+                # logger.info(f'  {p.LABEL}: Same start and end voltage, test will run at fixed voltage ({str(p.TEST_VSTART)} V).')
                 p.TEST_VSTEP = 0
             if abs(p.TEST_VEND-p.TEST_VSTART) < p.VRESSET:
-                logger.info('  ' + p.LABEL + ': Test voltage range is less than voltage setting resolution of the PSU. Test will run at fixed voltage (' + str(p.TEST_VSTART) + ' V).')
+                logger.info(f'  {p.LABEL}: Test voltage range is less than voltage setting resolution of the PSU. Test will run at fixed voltage ({str(p.TEST_VSTART)} V).')
                 p.TEST_VSTEP = 0
                 p.TEST_VEND = p.TEST_VSTART
             if p.TEST_VSTEP > 0.0:
@@ -300,64 +307,64 @@ def ctrace():
                     logger.info('  ' + p.LABEL + ': Idle current limit is higher than PSU power limit (' + str(p.PMAX) + ' W). Adjusting idle current limit to ' + str(p.TEST_IIDLE) + ' A.' )
 
     # Print summary of test setup:
-    print('\nTest setup:')
+    logger.info('\nTest setup:')
     for p in [PSU1, PSU2]:
         
         if not p.CONNECTED:
-            print ('* ' + p.LABEL + ': Not connected')
-            print ('* ' + p.LABEL + ': Test parameters not configured')
+            logger.info(f'* {p.LABEL}: Not connected, test parameters not configured')
         else:
-            print ('* ' + p.LABEL + ':')
+            logger.info(f'* {p.LABEL}:')
+            
             for k in range(len(p._PSU)):
                 if len(p._PSU) == 1:
-                    print ('  - Type: ' + str(p._PSU[k].COMMANDSET) + ' / ' + p._PSU[k].MODEL)
+                    logger.info(f'  - Type: {p._PSU[k].COMMANDSET} / {p._PSU[k].MODEL}')
                 else:
-                    print ('  - Type (unit '+str(k+1)+'): ' + str(p._PSU[k].COMMANDSET) + ' / ' + p._PSU[k].MODEL)
+                    logger.info(f'  - Type (unit {k+1}): {p._PSU[k].COMMANDSET} / {p._PSU[k].MODEL}')
 
             if p.TEST_VSTEP == 0:
-                print ('  - voltage output = ' + str(p.TEST_VSTART) + ' V (fixed)')
+                logger.info(f'  - voltage output = {p.TEST_VSTART} V (fixed)')
             else:
-                print ('  - voltage output = ' + str(p.TEST_VSTART) + ' V ... ' + str(p.TEST_VEND) + ' V (' + str(p.TEST_VSTEP) + ' V steps)')
-            print ('  - current limit = ' + str(p.TEST_ILIMIT) + ' A')
-            print ('  - power limit = ' + str(p.TEST_PLIMIT) + ' W')
+                logger.info(f'  - voltage output = {p.TEST_VSTART} V ... {p.TEST_VEND} V ({p.TEST_VSTEP} V steps)')
+            logger.info(f'  - current limit = {p.TEST_ILIMIT} A')
+            logger.info(f'  - power limit = {p.TEST_PLIMIT} W')
+            
             if p.TEST_POLARITY == 1:
-                print ('  - polarity: normal')
+                logger.info('  - polarity: normal')
             else:
-                print ('  - polarity: inverted')
+                logger.info('  - polarity: inverted')
 
-    print ('* Repeats per reading = ' + str(N_rep))
+    logger.info(f'* Repeats per reading = {N_rep}')
     if T_idle == 0.0:
-        print ('* No idle time between measurements')
+        logger.info(f'* No idle time between measurements')
     else:
-        print ('* Idle time between measurements: ' + str(T_idle) + ' s')
+        logger.info(f'* Idle time between measurements: {T_idle} s')
     if T_preheat == 0.0:
-        print ('* No pre-heating before measurements')
+        logger.info(f'* No pre-heating before measurements')
     else:
-        print ('* Pre-heat time before measurements (at idle conditions): ' + str(T_preheat) + ' seconds')
+        logger.info(f'* Pre-heat time before measurements (at idle conditions): {T_preheat} seconds')
     if (T_idle > 0.0) or (T_preheat > 0.0):
         for p in [PSU1, PSU2]:
             if p.CONNECTED == False:
-                print ('* ' + p.LABEL + ' Idle / pre-heat conditions not configured')
+                logger.info(f'* {p.LABEL} Idle / pre-heat conditions not configured')
             else:
                 if p.TEST_VIDLE_MAX == p.TEST_VIDLE_MIN:
-                    print ('* ' + p.LABEL + ' idle / pre-heat voltage = ' + str(p.TEST_VIDLE) + ' V (fixed value)')
+                    logger.info(f'* {p.LABEL} idle / pre-heat voltage = {p.TEST_VIDLE} V (fixed value)')
                 else:
-                    print ('* ' + p.LABEL + ' idle / pre-heat voltage range = ' + str(p.TEST_VIDLE_MIN) + ' V ... ' + str(p.TEST_VIDLE_MAX) + ' V.')
-                print ('* ' + p.LABEL + ' idle / pre-heat current = ' + str(p.TEST_IIDLE) + ' A')
-                print ('* ' + p.LABEL + ' max. idle / pre-heat power = ' + str(p.TEST_PIDLELIMIT) + ' W')
+                    logger.info(f'* {p.LABEL} idle / pre-heat voltage range = {p.TEST_VIDLE_MIN} V ... {p.TEST_VIDLE_MAX} V.')
+                logger.info(f'* {p.LABEL} idle / pre-heat current = {p.TEST_IIDLE} A')
+                logger.info(f'* {p.LABEL} max. idle / pre-heat power = {p.TEST_PIDLELIMIT} W')
 
-    print ('* Heaterblock temperature (current) = ' + str(HEATER.get_temperature_string()))
-    print ('* Heaterblock temperature (target)  = ' + str(HEATER.get_target_temperature_string()))
+    logger.info(f'* Heaterblock temperature (current/target) = {HEATER.get_temperature_string()}/{HEATER.get_target_temperature_string()}')
 
-    R2CTL_txt = '* R2CONTROL = '
-    u = 'NOT SPECIFIED'
+    R2CTL_txt = "* R2CONTROL = "
+    u = "NOT SPECIFIED"
     if R2CONTROL is not None:
         try:
-            u = str(R2CONTROL) + ' Ohm'
+            u = f"{R2CONTROL} Ohm"
         except:
             R2CONTROL = None
-    R2CTL_txt = R2CTL_txt + ' ' + u
-    print (R2CTL_txt)
+    R2CTL_txt = f"{R2CTL_txt} {u}"
+    logger.info(R2CTL_txt)
 
     # set up plotting environment
     plt.ion()
@@ -403,7 +410,7 @@ def ctrace():
         while do_run:
 
             # Ask if okay to start the test
-            input ('\nReady for testing of ' + samplename + '? Press ENTER to start testing or CTRL+C to abort...')
+            input('\nReady for testing of ' + samplename + '? Press ENTER to start testing or CTRL+C to abort...')
 
             # Print header / column labels:
             printit('* Sample: ' + samplename,logfile,'%', terminal_output=False)
@@ -423,7 +430,7 @@ def ctrace():
                 printit ('Column 9:  PSU2 current measurement (I)',logfile,'%', terminal_output=False)
                 printit ('Column 10: PSU2 limiter flag',logfile,'%', terminal_output=False)
                 printit ('Column 11: Heaterblock temperature (°C)',logfile,'%', terminal_output=False)
-            print ('\n')
+            print('\n')
 
             # Make sure the heater is turned on (if possible/configured):
             HEATER.turn_on()
@@ -489,13 +496,8 @@ def ctrace():
                         # V1 = round(V1/PSU1.VRESSET) * PSU1.VRESSET
 
                         # init measurement values		
-                        V1MEAS = []
-                        I1MEAS = []
-                        LIMIT1 = 0
-                        V2MEAS = []
-                        I2MEAS = []
-                        LIMIT2 = 0
-                        T_HB   = []
+                        V1MEAS = I1MEAS = V2MEAS = I2MEAS = T_HB = []
+                        LIMIT1 = LIMIT2 = 0
 
                         # measurement loop:
                         for i in range(N_rep):
@@ -623,9 +625,9 @@ def ctrace():
                 logger.info('Curve tracing completed.')
                 
             # Turn off PSUs:
-            for p in [PSU1, PSU2]:
-                if p.CONNECTED:
-                    p.turnOff()
+            for p in [PSU1, PSU2]: 
+                if p.CONNECTED: 
+                    p.turnOff() 
         
             if batch_mode:
             
@@ -646,7 +648,7 @@ def ctrace():
         logger.info('Caught keyboard interrupt, exiting...')
         
     except Exception as e:
-        logger.warning('Oooops, something went wrong during testing: ' + repr(e))
+        logger.warning(f'Oooops, something went wrong during testing: {repr(e)}')
 
     finally:
         cleanup_exit(PSU1, PSU2, HEATER, queue, plt_proc)

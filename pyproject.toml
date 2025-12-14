@@ -9,6 +9,7 @@ name = "pypsucurvetrace"
 version = "1.1.0"
 authors = [
   { name="Matthias Brennwald", email="mbrennwa@gmail.com" },
+  { name="HumbleDeer", contributions="XinYi support, multi-address ModBus, <yet-to-be-invented ingenuity-driven bumfuckery>"}
 ]
 description = "A software toolbox for I/V curve tracing of electronic devices using programmable power supplies."
 readme = "README.md"
@@ -40,7 +41,7 @@ curvetrace   = "pypsucurvetrace:curvetrace"
 curveplot    = "pypsucurvetrace:curveplot"
 curveprocess = "pypsucurvetrace:curveprocess"
 curvematch   = "pypsucurvetrace:curvematch"
-curveconvert     = "pypsucurvetrace:curveconvert"
+curveconvert = "pypsucurvetrace:curveconvert"
 
 [project.urls]
 "Homepage" = "https://github.com/mbrennwa/pypsucurvetrace"
